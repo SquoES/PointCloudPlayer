@@ -1,0 +1,36 @@
+﻿uint VertexCount;
+uint Width;
+uint PointLimit;
+float maxDistance;
+
+#pragma kernel TransferFrame
+StructuredBuffer<int> FrameBuffer;
+
+RWTexture2D<float4> PositionMap;
+RWTexture2D<float4> ColorMap;
+[numthreads(4,4,1)]        
+void TransferFrame (uint2 id : SV_DispatchThreadID){
+	uint i = (id.x + id.y * Width) % VertexCount;
+	if (i > PointLimit) return;
+
+	int sX = (uint)(FrameBuffer[i * 3] >> 24 & 0xFF) == 0 ? 1 : -1;
+	int sY = (uint)(FrameBuffer[i * 3 + 1] >> 24 & 0xFF) == 0 ? 1 : -1;
+	int sZ = (uint)(FrameBuffer[i * 3 + 2] >> 24 & 0xFF) == 0 ? 1 : -1;
+	
+	float x = FrameBuffer[i * 3] & 0xFFFF;
+	float y = FrameBuffer[i * 3 + 1] & 0xFFFF;
+	float z = FrameBuffer[i * 3 + 2] & 0xFFFF;
+
+	float wX = sX * x / 1000.0f;
+	float wY = sY * y / 1000.0f;
+	float wZ = sZ * z / 1000.0f;
+
+	if (abs(wZ) > maxDistance) return;
+	
+	int r = (uint)(FrameBuffer[i * 3] >> 16 & 0xFF);
+	int g = (uint)(FrameBuffer[i * 3 + 1] >> 16 & 0xFF);
+	int b = (uint)(FrameBuffer[i * 3 + 2] >> 16 & 0xFF);
+	
+	PositionMap[id] = float4(wX, wY, wZ, 1);
+	ColorMap[id] = float4((float)r, (float)g, (float)b, 255.)/255.;
+}

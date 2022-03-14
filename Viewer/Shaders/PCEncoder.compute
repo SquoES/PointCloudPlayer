@@ -1,0 +1,50 @@
+uint Width;
+uint Height;
+uint WidthUnscaled;
+uint VertexCount;
+
+float fX;
+float fY;
+float cX;
+float cY;
+
+#pragma kernel iOSEncoder
+RWStructuredBuffer<int> Result;
+RWTexture2D<float4> texRes;
+
+StructuredBuffer<float> Depth;
+StructuredBuffer<uint> Color;
+StructuredBuffer<int> SamplingGrid;
+
+[numthreads(4,4,1)]
+void iOSEncoder (uint3 id : SV_DispatchThreadID)
+{
+    uint index = (id.x + id.y * Width) % VertexCount;
+    uint i = SamplingGrid[index];
+
+    int w = i % WidthUnscaled;
+    int h = i / WidthUnscaled;
+    
+    int x = -(w - cX) / fX * Depth[i] * 1000;
+    int y = (h - cY) / fY * Depth[i] * 1000;
+    int z = Depth[i] * 1000;
+    
+    int sX = x > 0 ? 0 : 1;
+    int sY = y > 0 ? 0 : 1;
+    int sZ = z > 0 ? 0 : 1;
+
+    uint c = Color[i];
+    uint lC = ((c & 0x000000ff) << 24) +
+              ((c & 0x0000ff00) << 8) +
+              ((c & 0x00ff0000) >> 8) +
+              ((c & 0xff000000) >> 24);
+
+    
+    uint r = (lC >> 24) & 0xFF;
+    uint g = (lC >> 16) & 0xFF;
+    uint b = (lC >> 8) & 0xFF;
+
+    Result[index * 3] = (abs(x) & 0x0000FFFF) | ((r & 0x000000FF) << 16) | (sX & 0x00FF) << 24;
+    Result[index * 3 + 1] = (abs(y) & 0x0000FFFF) | ((g & 0x000000FF) << 16) | (sY & 0x00FF) << 24;
+    Result[index * 3 + 2] = (abs(z) & 0x0000FFFF) | ((b & 0x000000FF) << 16) | (sZ & 0x00FF) << 24;
+}
